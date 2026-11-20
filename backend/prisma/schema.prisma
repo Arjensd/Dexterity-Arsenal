@@ -1,0 +1,246 @@
+// Dexterity Arsenal - Prisma schema
+// Member 2 scope: Module 1 / Feature 2 (Session Scheduling & Calendar Integration)
+//                 Module 2 / Feature 2 (Live Course Subscription Model)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────── Enums ─────────────────────────
+
+enum Role {
+  LEARNER
+  INSTRUCTOR
+  ADMIN
+}
+
+enum SessionMode {
+  ONLINE // Google Meet
+  OFFLINE // physical address
+}
+
+enum SessionFormat {
+  ONE_ON_ONE
+  GROUP
+}
+
+enum SlotStatus {
+  OPEN
+  CANCELLED
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+enum PlanTier {
+  BASIC
+  PRO
+  MAX
+}
+
+enum SubscriptionStatus {
+  PENDING // checkout started, not paid yet
+  ACTIVE
+  CANCELLED // fully ended / abandoned
+}
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+}
+
+// ───────────────────────── Users ─────────────────────────
+// (Auth / profile belongs to the "Common Workflows"; kept minimal here so
+//  that my two features can run on their own. Teammates extend this model.)
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String
+  role         Role     @default(LEARNER)
+  headline     String?
+  bio          String?
+  avatarUrl    String?
+  skills       String[]
+  isVerified   Boolean  @default(false)
+  // Denormalised rating summary - owned by the Review module (Module 2 / F3).
+  ratingAvg    Float    @default(0)
+  ratingCount  Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  slots         AvailabilitySlot[]
+  bookings      SessionBooking[]
+  courses       LiveCourse[]
+  subscriptions Subscription[]
+  questions     CourseQuestion[]
+  notifications Notification[]
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
+
+// ─────────────── Module 1 / Feature 2: Sessions ───────────────
+
+model AvailabilitySlot {
+  id            String        @id @default(uuid())
+  instructorId  String
+  title         String        @default("Mentoring Session")
+  description   String?
+  startsAt      DateTime
+  endsAt        DateTime
+  mode          SessionMode
+  format        SessionFormat @default(ONE_ON_ONE)
+  capacity      Int           @default(1)
+  address       String?
+  meetLink      String?
+  googleEventId String?
+  status        SlotStatus    @default(OPEN)
+  createdAt     DateTime      @default(now())
+
+  instructor User             @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  bookings   SessionBooking[]
+
+  @@index([instructorId, startsAt])
+  @@index([startsAt])
+}
+
+model SessionBooking {
+  id          String        @id @default(uuid())
+  slotId      String
+  learnerId   String
+  status      BookingStatus @default(CONFIRMED)
+  note        String?
+  createdAt   DateTime      @default(now())
+  cancelledAt DateTime?
+
+  slot    AvailabilitySlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  learner User             @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@unique([slotId, learnerId])
+  @@index([learnerId, status])
+}
+
+// ─────────── Module 2 / Feature 2: Live Course Subscriptions ───────────
+
+model LiveCourse {
+  id           String       @id @default(uuid())
+  instructorId String
+  title        String
+  description  String
+  whatYouGet   String[]
+  faqs         Json         @default("[]")
+  skills       String[]
+  coverColor   String       @default("violet")
+  status       CourseStatus @default(PUBLISHED)
+  createdAt    DateTime     @default(now())
+
+  instructor    User               @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  plans         SubscriptionPlan[]
+  subscriptions Subscription[]
+  classes       LiveClass[]
+  resources     CourseResource[]
+  questions     CourseQuestion[]
+
+  @@index([instructorId])
+}
+
+model SubscriptionPlan {
+  id            String   @id @default(uuid())
+  courseId      String
+  tier          PlanTier
+  name          String
+  priceCents    Int
+  currency      String   @default("usd")
+  hasResources  Boolean  @default(false)
+  hasPriorityQA Boolean  @default(false)
+  features      String[]
+
+  course        LiveCourse     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  subscriptions Subscription[]
+
+  @@unique([courseId, tier])
+}
+
+model Subscription {
+  id                      String             @id @default(uuid())
+  learnerId               String
+  courseId                String
+  planId                  String
+  status                  SubscriptionStatus @default(PENDING)
+  currentPeriodStart      DateTime?
+  currentPeriodEnd        DateTime?
+  cancelAtPeriodEnd       Boolean            @default(false)
+  stripeCheckoutSessionId String?
+  stripeSubscriptionId    String?
+  createdAt               DateTime           @default(now())
+
+  learner User             @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  course  LiveCourse       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  plan    SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@index([learnerId, courseId])
+}
+
+model LiveClass {
+  id          String   @id @default(uuid())
+  courseId    String
+  title       String
+  description String?
+  startsAt    DateTime
+  durationMin Int      @default(60)
+  meetingLink String
+  createdAt   DateTime @default(now())
+
+  course LiveCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId, startsAt])
+}
+
+model CourseResource {
+  id          String   @id @default(uuid())
+  courseId    String
+  title       String
+  description String?
+  fileUrl     String
+  fileType    String?
+  createdAt   DateTime @default(now())
+
+  course LiveCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+}
+
+model CourseQuestion {
+  id         String    @id @default(uuid())
+  courseId   String
+  learnerId  String
+  body       String
+  isPriority Boolean   @default(false)
+  answer     String?
+  answeredAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  course  LiveCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  learner User       @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@index([courseId, isPriority])
+}

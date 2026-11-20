@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+/* Design tokens - straight from the "Dexterity Arsenal Purple UI Style Guide" */
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-primary: #6c3aed;
+  --color-primary-light: #a78bfa;
+  --color-primary-soft: #ede9fe;
+
+  --color-secondary: #6366f1;
+  --color-secondary-light: #c7d2fe;
+  --color-secondary-soft: #eef2ff;
+
+  --color-ink-900: #0f172a;
+  --color-ink-700: #374151;
+  --color-ink-500: #6b7280;
+  --color-ink-300: #d1d5db;
+  --color-ink-100: #f3f4f6;
+
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+
+  --color-surface: #f8fafc;
+  --color-muted: #f1f5f9;
+  --color-sub: #64748b;
+  --color-mute: #94a3b8;
+
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -8px rgb(108 58 237 / 0.12);
+  --shadow-pop: 0 20px 50px -12px rgb(108 58 237 / 0.28);
+}
+
+html { background: #eeeafc; }
+body {
+  font-family: var(--font-sans);
+  color: var(--color-ink-900);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1 { font-size: 2rem; line-height: 2.5rem; font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 1.5rem; line-height: 2rem; font-weight: 600; letter-spacing: -0.01em; }
+h3 { font-size: 1.125rem; line-height: 1.75rem; font-weight: 600; }
+
+.brand-gradient { background-image: linear-gradient(90deg, #6c3aed, #a78bfa); }
+.brand-gradient-v { background-image: linear-gradient(135deg, #6c3aed, #a78bfa); }
+
+input, select, textarea { font: inherit; }
+:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+@keyframes pop-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+.pop-in { animation: pop-in 0.18s ease-out; }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+.skeleton { position: relative; overflow: hidden; background: var(--color-muted); border-radius: 12px; }
+.skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.7), transparent); animation: shimmer 1.4s infinite; }
